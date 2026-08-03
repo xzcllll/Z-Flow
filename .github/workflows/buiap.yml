@@ -1,0 +1,52 @@
+name: Build Android APK (No Deprecated Actions)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5   # 若无v5仍可用v4，大概率只是警告不会失败，后续可再观察
+
+      # 1. 手动设置 Java 17（镜像里已有，直接声明环境变量）
+      - name: Set up JDK 17
+        run: |
+          echo "JAVA_HOME=${{ env.JAVA_HOME_17_X64 }}" >> $GITHUB_ENV
+          echo "$JAVA_HOME/bin" >> $GITHUB_PATH
+
+      # 2. 手动安装 Android SDK 命令行工具
+      - name: Install Android SDK
+        run: |
+          # 下载 commandline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-*.zip -d $HOME/android-sdk
+          mkdir -p $HOME/android-sdk/latest
+          mv $HOME/android-sdk/cmdline-tools/* $HOME/android-sdk/latest/
+          
+          # 设置环境变量
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          
+          # 接受许可
+          yes | $HOME/android-sdk/latest/bin/sdkmanager --licenses
+          
+          # 安装所需 SDK 平台和构建工具（版本请按你项目里的 compileSdk 修改）
+          $HOME/android-sdk/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Grant gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
