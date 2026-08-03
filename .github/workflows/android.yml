@@ -1,9 +1,13 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:          # 允许手动触发
   push:
     branches: [ master, main ]
+
+# 若遇到 Node20 被强制升为 Node24 导致 checkout 等动作报错，可取消下面这行的注释：
+# env:
+#   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: false
 
 jobs:
   build:
@@ -11,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4   # 仍可使用 v4，只是可能会有 Node.js 弃用警告，不影响运行
+        uses: actions/checkout@v4   # 目前仍可用，仅有弃用警告
 
       - name: Set up JDK 17
         run: |
@@ -24,7 +28,7 @@ jobs:
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-*.zip
 
-          # 创建正确的目录结构: $ANDROID_HOME/cmdline-tools/latest/
+          # 创建正确的目录结构：$ANDROID_HOME/cmdline-tools/latest/
           mkdir -p $HOME/android-sdk/cmdline-tools/latest
           mv cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
 
@@ -33,11 +37,15 @@ jobs:
           echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-          # 接受许可（必须显式指定 --sdk_root）
+          # 接受许可
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
 
-          # 安装 SDK 平台和构建工具（同样需要 --sdk_root，版本按项目修改）
+          # 安装 SDK 平台和构建工具
+          # ⚠️ 请将 android-34 和 34.0.0 改为你项目实际使用的版本
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Remove conflicting ANDROID_SDK_ROOT
+        run: echo "ANDROID_SDK_ROOT=" >> $GITHUB_ENV
 
       - name: Grant gradlew permission
         run: chmod +x gradlew
@@ -45,7 +53,7 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
