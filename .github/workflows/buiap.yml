@@ -1,4 +1,4 @@
-name: Build Android APK (No Deprecated Actions)
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -11,35 +11,35 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5   # 若无v5仍可用v4，大概率只是警告不会失败，后续可再观察
+        uses: actions/checkout@v4   # 仍可使用 v4，只是可能会有 Node.js 弃用警告，不影响运行
 
-      # 1. 手动设置 Java 17（镜像里已有，直接声明环境变量）
       - name: Set up JDK 17
         run: |
           echo "JAVA_HOME=${{ env.JAVA_HOME_17_X64 }}" >> $GITHUB_ENV
-          echo "$JAVA_HOME/bin" >> $GITHUB_PATH
+          echo "${{ env.JAVA_HOME_17_X64 }}/bin" >> $GITHUB_PATH
 
-      # 2. 手动安装 Android SDK 命令行工具
       - name: Install Android SDK
         run: |
-          # 下载 commandline-tools
+          # 下载命令行工具
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-*.zip -d $HOME/android-sdk
-          mkdir -p $HOME/android-sdk/latest
-          mv $HOME/android-sdk/cmdline-tools/* $HOME/android-sdk/latest/
-          
+          unzip -q commandlinetools-linux-*.zip
+
+          # 创建正确的目录结构: $ANDROID_HOME/cmdline-tools/latest/
+          mkdir -p $HOME/android-sdk/cmdline-tools/latest
+          mv cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
+
           # 设置环境变量
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$ANDROID_HOME/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-          
-          # 接受许可
-          yes | $HOME/android-sdk/latest/bin/sdkmanager --licenses
-          
-          # 安装所需 SDK 平台和构建工具（版本请按你项目里的 compileSdk 修改）
-          $HOME/android-sdk/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-      - name: Grant gradlew
+          # 接受许可（必须显式指定 --sdk_root）
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
+
+          # 安装 SDK 平台和构建工具（同样需要 --sdk_root，版本按项目修改）
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Grant gradlew permission
         run: chmod +x gradlew
 
       - name: Build Debug APK
